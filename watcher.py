@@ -9,6 +9,9 @@ LOGIN_URL = 'https://www.facebook.com/login.php'
 
 class FacebookGroupWatcher():
     def __init__(self, email, password, settings, browser='Chrome'):
+        # init groups and keywords
+        self.getKeywords()
+        self.getGroups()
         # Store credentials for login
         self.settings = settings
         self.email = email
@@ -23,12 +26,12 @@ class FacebookGroupWatcher():
             options.set_preference('dom.popup_maximum', -1)
             #options.set_headless(True)
             self.driver = webdriver.Firefox(executable_path=GeckoDriverManager().install(), options=options)
-        self.driver.get(LOGIN_URL)
         sleep(1)
  
  
  
     def login(self):
+        self.driver.get(LOGIN_URL)
         email_element = self.driver.find_element_by_id('email')
         email_element.send_keys(self.email) # Give keyboard input
  
@@ -40,20 +43,32 @@ class FacebookGroupWatcher():
  
         sleep(5)
     
-    def getGroup(self):
-        #https://m.facebook.com/abdelilah.memel.5
-        self.getPostsUrls("https://www.facebook.com/groups/1408001826007480/search?q=emploi&filters=eyJycF9jaHJvbm9fc29ydDowIjoie1wibmFtZVwiOlwiY2hyb25vc29ydFwiLFwiYXJnc1wiOlwiXCJ9In0%3D")
-
+    def getGroups(self):
+        self.groups = []
+        with open("groups.txt", "r") as f:
+            for line in f:
+                self.groups.append(line.strip())
+        f.close()
+    
+    def getKeywords(self):
+        self.keywords = []
+        with open("keywords.txt", "r") as f:
+            for line in f:
+                self.keywords.append(line.strip())
+        f.close()
     # Takes a page (group) url and returns a list of latest posts urls
-    def getPostsUrls(self, page):
-        self.driver.get(page)
-        for _ in range(self.settings["scroll_nbr"]):
-            sleep(self.settings["scroll_timer"])
-            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight)") 
-        sleep(self.settings["scroll_timer"])
-        page_source = self.driver.page_source
-        soup = BeautifulSoup(page_source, "lxml")
-        for link in soup.findAll('a'):
-            href = link.get('href')
-            if "/permalink/" in href and "comment" not in href:
-                print(href)
+    def getPostsUrls(self):
+        for group in self.groups:
+            for key in self.keywords:
+                self.driver.get(group + "search?q="+ key + "&filters=eyJycF9jaHJvbm9fc29ydDowIjoie1wibmFtZVwiOlwiY2hyb25vc29ydFwiLFwiYXJnc1wiOlwiXCJ9In0%3D")
+                print("Current group: " + group + " " + key)
+                for _ in range(int(self.settings["scroll_nbr"])):
+                    sleep(int(self.settings["scroll_timer"]))
+                    self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight)") 
+                sleep(int(self.settings["scroll_timer"]))
+                page_source = self.driver.page_source
+                soup = BeautifulSoup(page_source, "lxml")
+                for link in soup.findAll('a'):
+                    href = link.get('href')
+                    if "/permalink/" in href and "comment" not in href:
+                        print(href)
