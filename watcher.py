@@ -4,7 +4,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.firefox.options import Options
 from bs4 import BeautifulSoup
 from time import sleep
-
+import re
 LOGIN_URL = 'https://www.facebook.com/login.php'
 
 class FacebookGroupWatcher():
@@ -27,9 +27,15 @@ class FacebookGroupWatcher():
             #options.set_headless(True)
             self.driver = webdriver.Firefox(executable_path=GeckoDriverManager().install(), options=options)
         sleep(1)
- 
- 
- 
+        self.init_tabs()
+
+    def init_tabs(self):
+        # open new tab for mobile facebook
+        self.driver.execute_script("window.open('', '_blank');")
+        sleep(1)
+        # return to web tab
+        self.driver.switch_to_window(self.driver.window_handles[0])
+
     def login(self):
         self.driver.get(LOGIN_URL)
         email_element = self.driver.find_element_by_id('email')
@@ -62,13 +68,27 @@ class FacebookGroupWatcher():
             for key in self.keywords:
                 self.driver.get(group + "search?q="+ key + "&filters=eyJycF9jaHJvbm9fc29ydDowIjoie1wibmFtZVwiOlwiY2hyb25vc29ydFwiLFwiYXJnc1wiOlwiXCJ9In0%3D")
                 print("Current group: " + group + " " + key)
-                for _ in range(int(self.settings["scroll_nbr"])):
+                for _ in range(1): #int(self.settings["scroll_nbr"])
                     sleep(int(self.settings["scroll_timer"]))
                     self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight)") 
                 sleep(int(self.settings["scroll_timer"]))
                 page_source = self.driver.page_source
                 soup = BeautifulSoup(page_source, "lxml")
-                for link in soup.findAll('a'):
+                links = soup.findAll("a")
+                # switch to mobile tab
+                self.driver.switch_to_window(self.driver.window_handles[1])
+                #loop over soup and find links for posts                
+                for link in links:
                     href = link.get('href')
                     if "/permalink/" in href and "comment" not in href:
-                        print(href)
+                        # open post in m.facebook.com to get post info
+                        self.driver.get(href.replace("www", "m"))
+                        post = {link: href}
+                        try:
+                            post["content"] = self.driver.find_element_by_css_selector("._5rgt._5nk5").text
+                        except Exception:
+                            post["content"] = ""
+                        post.title = re.compile(r"\s+").split(post["content"]).join(" ")[0:80]
+                        print(post)
+                #return to web tab
+                self.driver.switch_to_window(self.driver.window_handles[0])
