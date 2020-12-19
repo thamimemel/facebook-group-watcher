@@ -8,9 +8,14 @@ import re
 LOGIN_URL = 'https://www.facebook.com/login.php'
 
 class FacebookGroupWatcher():
-    def __init__(self, email, password, database, browser='Chrome'):
+    def __init__(self, email, password, database, feed, browser='Chrome'):
         # Get Entries from entries.txt
         self.getEntries()
+
+        # set self feed and database
+        self.feed = feed
+        self.database = database
+
         # Get settings from DB
         self.settings = database.settings
 
@@ -64,38 +69,53 @@ class FacebookGroupWatcher():
         return entry.split("|")[1].strip().split(" ")
     
     # Takes a page (group) url and returns a list of latest posts urls
-    def getPostsUrls(self):
-        for entry in self.entries:
-            group = self.getGroupe(entry)
-            for key in self.getKeywords(entry):
-                self.driver.get(group + "search?q="+ key + "&filters=eyJycF9jaHJvbm9fc29ydDowIjoie1wibmFtZVwiOlwiY2hyb25vc29ydFwiLFwiYXJnc1wiOlwiXCJ9In0%3D")
-                print("Current group: " + group + " " + key)
-                for _ in range(1): #int(self.settings["scroll_nbr"])
+    def drive(self):
+        while True:
+            for entry in self.entries:
+                group = self.getGroupe(entry)
+                for key in self.getKeywords(entry):
+                    self.driver.get(group + "search?q="+ key + "&filters=eyJycF9jaHJvbm9fc29ydDowIjoie1wibmFtZVwiOlwiY2hyb25vc29ydFwiLFwiYXJnc1wiOlwiXCJ9In0%3D")
+                    print("Current group: " + group + " " + key)
+                    for _ in range(int(self.settings["scroll_nbr"])):
+                        sleep(int(self.settings["scroll_timer"]))
+                        self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight)") 
                     sleep(int(self.settings["scroll_timer"]))
-                    self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight)") 
-                sleep(int(self.settings["scroll_timer"]))
-                page_source = self.driver.page_source
-                soup = BeautifulSoup(page_source, "lxml")
-                links = soup.findAll("a")
-                # switch to mobile tab
-                self.driver.switch_to_window(self.driver.window_handles[1])
-                #loop over soup and find links for posts                
-                for link in links:
-                    href = link.get('href')
-                    if "/permalink/" in href and "comment" not in href:
-                        # open post in m.facebook.com to get post info
-                        self.driver.get(href.replace("www", "m"))
-                        post = {"link": href}
-                        try:
-                            post["content"] = self.driver.find_element_by_css_selector("._5rgt._5nk5").text
-                        except Exception:
-                            post["content"] = ""
-                        post["title"] = " ".join(re.compile(r"\s+").split(post["content"]))[0:80]
-
-                        print(post)
-                #return to web tab
-                self.driver.switch_to_window(self.driver.window_handles[0])
-        
+                    page_source = self.driver.page_source
+                    soup = BeautifulSoup(page_source, "lxml")
+                    links = soup.findAll("a")
+                    # switch to mobile tab
+                    self.driver.switch_to_window(self.driver.window_handles[1])
+                    #loop over soup and find links for posts                
+                    for link in links:
+                        href = link.get('href')
+                        if "/permalink/" in href and "comment" not in href:
+                            # open post in m.facebook.com to get post info
+                            self.driver.get(href.replace("www", "m"))
+                            post = {"url": href, "key": key}
+                            if (self.driver.find_element_by_css_selector("._5rgt._5nk5").text):
+                                post["content"] = self.driver.find_element_by_css_selector("._5rgt._5nk5").text
+                            else:
+                                post["content"] = "NO TEXT CONTENT"
+                            post["title"] = " ".join(re.compile(r"\s+").split(post["content"]))[0:80]
+                            # Inserting or updating entry in database
+                            post_query = self.database.get_post(post["url"])
+                            if (not post_query):
+                                self.database.insert_post(post)
+                            elif (post_query and key not in post_query[1]):
+                                new_key = "%s,%s" % (post_query[1], key)
+                                self.database.update_post(post["url"], new_key)
+ 
+                    #return to web tab
+                    self.driver.switch_to_window(self.driver.window_handles[0])
+            self.database.conn.commit()
+            self.generate_feed()
+    
+    def generate_feed(self):
+        self.database.c.execute("SELECT rowid, * FROM Posts")
+        posts = self.database.c.fetchall()
+        for post in posts:
+            self.feed.add_entry(post)
+        self.feed.gen_feed()
     def close(self):
         for tab in self.driver.window_handles:
             self.driver.switch_to_window(tab)
