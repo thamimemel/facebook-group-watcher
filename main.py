@@ -9,14 +9,9 @@ if __name__ == '__main__':
     feed = Feed()
     # Init watchers
     watcher = FacebookGroupWatcher(email='memelthami', password='hp811998aZ-xyznew', database=db, feed=feed, browser='Firefox')
-    '''
     try:
-    '''
-    watcher.login()
-    watcher.drive()
-    watcher.close()
-    '''
+        watcher.login()
+        watcher.drive()
     except Exception:
         watcher.close()
         print("unexpected error, closing")
-    '''
