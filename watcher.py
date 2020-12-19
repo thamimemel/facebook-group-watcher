@@ -8,12 +8,13 @@ import re
 LOGIN_URL = 'https://www.facebook.com/login.php'
 
 class FacebookGroupWatcher():
-    def __init__(self, email, password, settings, browser='Chrome'):
-        # init groups and keywords
-        self.getKeywords()
-        self.getGroups()
+    def __init__(self, email, password, database, browser='Chrome'):
+        # Get Entries from entries.txt
+        self.getEntries()
+        # Get settings from DB
+        self.settings = database.settings
+
         # Store credentials for login
-        self.settings = settings
         self.email = email
         self.password = password
         if browser == 'Chrome':
@@ -49,23 +50,24 @@ class FacebookGroupWatcher():
  
         sleep(5)
     
-    def getGroups(self):
-        self.groups = []
-        with open("groups.txt", "r") as f:
+    def getEntries(self):
+        self.entries = []
+        with open("entries.txt", "r") as f:
             for line in f:
-                self.groups.append(line.strip())
+                self.entries.append(line.strip())
         f.close()
     
-    def getKeywords(self):
-        self.keywords = []
-        with open("keywords.txt", "r") as f:
-            for line in f:
-                self.keywords.append(line.strip())
-        f.close()
+    def getGroupe(self, entry):
+        return entry.split("|")[0].strip()
+
+    def getKeywords(self, entry):
+        return entry.split("|")[1].strip().split(" ")
+    
     # Takes a page (group) url and returns a list of latest posts urls
     def getPostsUrls(self):
-        for group in self.groups:
-            for key in self.keywords:
+        for entry in self.entries:
+            group = self.getGroupe(entry)
+            for key in self.getKeywords(entry):
                 self.driver.get(group + "search?q="+ key + "&filters=eyJycF9jaHJvbm9fc29ydDowIjoie1wibmFtZVwiOlwiY2hyb25vc29ydFwiLFwiYXJnc1wiOlwiXCJ9In0%3D")
                 print("Current group: " + group + " " + key)
                 for _ in range(1): #int(self.settings["scroll_nbr"])
@@ -83,12 +85,18 @@ class FacebookGroupWatcher():
                     if "/permalink/" in href and "comment" not in href:
                         # open post in m.facebook.com to get post info
                         self.driver.get(href.replace("www", "m"))
-                        post = {link: href}
+                        post = {"link": href}
                         try:
                             post["content"] = self.driver.find_element_by_css_selector("._5rgt._5nk5").text
                         except Exception:
                             post["content"] = ""
-                        post.title = re.compile(r"\s+").split(post["content"]).join(" ")[0:80]
+                        post["title"] = " ".join(re.compile(r"\s+").split(post["content"]))[0:80]
+
                         print(post)
                 #return to web tab
                 self.driver.switch_to_window(self.driver.window_handles[0])
+        
+    def close(self):
+        for tab in self.driver.window_handles:
+            self.driver.switch_to_window(tab)
+            self.driver.close()

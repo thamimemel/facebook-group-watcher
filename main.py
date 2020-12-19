@@ -4,8 +4,7 @@ if __name__ == '__main__':
     # init databases
     db = Database()
     # Init watchers
-    watcher = FacebookGroupWatcher(email='memelthami', password='hp811998aZ-xyznew', settings=db.settings, browser='Firefox')
+    watcher = FacebookGroupWatcher(email='memelthami', password='hp811998aZ-xyznew', database=db, browser='Firefox')
     watcher.login()
     watcher.getPostsUrls()
-    watcher.driver.close()
-    
+    watcher.close()
