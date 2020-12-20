@@ -5,6 +5,9 @@ from selenium.webdriver.firefox.options import Options
 from bs4 import BeautifulSoup
 from time import sleep
 import re
+from sys import exit
+from termcolor import colored
+
 LOGIN_URL = 'https://www.facebook.com/login.php'
 
 class FacebookGroupWatcher():
@@ -30,7 +33,7 @@ class FacebookGroupWatcher():
             options = Options()
             options.set_preference("dom.disable_open_during_load", False)
             options.set_preference('dom.popup_maximum', -1)
-            #options.set_headless(True)
+            options.set_headless(True)
             self.driver = webdriver.Firefox(executable_path=GeckoDriverManager().install(), options=options)
         sleep(1)
         self.init_tabs()
@@ -43,6 +46,7 @@ class FacebookGroupWatcher():
         self.driver.switch_to_window(self.driver.window_handles[0])
 
     def login(self):
+        print(colored("INFO> Getting Login Page", "yellow"))
         self.driver.get(LOGIN_URL)
         email_element = self.driver.find_element_by_id('email')
         email_element.send_keys(self.email) # Give keyboard input
@@ -52,7 +56,7 @@ class FacebookGroupWatcher():
  
         login_button = self.driver.find_element_by_class_name('_xkt')
         login_button.click() # Send mouse click
- 
+        print(colored("INFO> Logging IN", "yellow"))
         sleep(5)
     
     def getEntries(self):
@@ -75,7 +79,7 @@ class FacebookGroupWatcher():
                 group = self.getGroupe(entry)
                 for key in self.getKeywords(entry):
                     self.driver.get(group + "search?q="+ key + "&filters=eyJycF9jaHJvbm9fc29ydDowIjoie1wibmFtZVwiOlwiY2hyb25vc29ydFwiLFwiYXJnc1wiOlwiXCJ9In0%3D")
-                    print("Current group: " + group + " " + key)
+                    print(colored("INFO> Driving to Group: " + group + " With keyword " + key, "yellow"))
                     for _ in range(int(self.settings["scroll_nbr"])):
                         sleep(int(self.settings["scroll_timer"]))
                         self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight)") 
@@ -85,7 +89,8 @@ class FacebookGroupWatcher():
                     links = soup.findAll("a")
                     # switch to mobile tab
                     self.driver.switch_to_window(self.driver.window_handles[1])
-                    #loop over soup and find links for posts                
+                    #loop over soup and find links for posts      
+                    print(colored(">>>>>>Scanning Matched Posts from " + group + " for keyword " + key, "yellow"))          
                     for link in links:
                         href = link.get('href')
                         if "/permalink/" in href and "comment" not in href:
@@ -107,8 +112,19 @@ class FacebookGroupWatcher():
  
                     #return to web tab
                     self.driver.switch_to_window(self.driver.window_handles[0])
-            self.database.conn.commit()
-            self.generate_feed()
+            try:
+                self.database.conn.commit()
+                print(colored("SUCCESS> New Posts Saved to Database", "green"))
+            except Exception:
+                print(colored("ERROR> Error Saving to Database, Exiting", "red"))
+                exit(1)
+            try:
+                print(colored("INFO> Generating New RSS Feed", "yellow"))
+                self.generate_feed()
+                print(colored("SUCCESS> RSS Updated Successfully", "green"))
+            except Exception:
+                print(colored("ERROR> Error Generating Feed, Exiting", "red"))
+                exit(1)
     
     def generate_feed(self):
         self.database.c.execute("SELECT rowid, * FROM Posts")
@@ -116,6 +132,7 @@ class FacebookGroupWatcher():
         for post in posts:
             self.feed.add_entry(post)
         self.feed.gen_feed()
+    
     def close(self):
         for tab in self.driver.window_handles:
             self.driver.switch_to_window(tab)

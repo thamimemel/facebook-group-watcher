@@ -1,0 +1,5 @@
+termcolor==1.1.0
+selenium==3.141.0
+webdriver-manager==3.2.2
+bs4==0.0.1
+feedgen==0.9.0
