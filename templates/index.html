@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Facebook group watcher</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1"
+      crossorigin="anonymous"
+    />
+  </head>
+
+  <body>
+    <ul class="nav nav-tabs" id="myTab" role="tablist">
+      <li class="nav-item" role="presentation">
+        <a
+          class="nav-link active"
+          id="home-tab"
+          data-bs-toggle="tab"
+          href="#home"
+          role="tab"
+          aria-controls="home"
+          aria-selected="true"
+          >Home</a
+        >
+      </li>
+      <li class="nav-item" role="presentation">
+        <a
+          class="nav-link"
+          id="profile-tab"
+          data-bs-toggle="tab"
+          href="/feed.xml"
+          target="_blank"
+          role="tab"
+          aria-controls="profile"
+          aria-selected="false"
+          >Open Feed</a
+        >
+      </li>
+    </ul>
+    <div class="container-fluid">
+      <row id="groups">
+        <div class="input-group mb-3">
+          <input
+            type="text"
+            class="form-control"
+            placeholder="Group Url"
+            aria-label="Username"
+            aria-describedby="basic-addon1"
+          />
+          <input
+            type="text"
+            class="form-control"
+            placeholder="Keywords"
+            aria-label="Username"
+            aria-describedby="basic-addon1"
+          />
+          <button type="button" class="btn btn-danger">Delete</button>
+        </div>
+      </row>
+      <button type="button" class="btn btn-secondary" onclick="addGroupField()">
+        Add another
+      </button>
+      <button type="button" class="btn btn-secondary" onclick="">
+        Save Groups
+      </button>
+    </div>
+    <script>
+      fetch("/getgroups")
+        .then((response) => {
+          if (!response.ok) {
+            alert("error fetching groups");
+          }
+          return response.json();
+        })
+        .then((json) => console.log(json));
+
+      const addGroupField = () => {
+        document.getElementById(
+          "groups"
+        ).innerHTML += `        <div class="input-group mb-3">
+          <input
+            type="text"
+            class="form-control"
+            placeholder="Group Url"
+            aria-label="Username"
+            aria-describedby="basic-addon1"
+          />
+          <input
+            type="text"
+            class="form-control"
+            placeholder="Keywords"
+            aria-label="Username"
+            aria-describedby="basic-addon1"
+          />
+        </div>
+`;
+      };
+    </script>
+  </body>
+</html>

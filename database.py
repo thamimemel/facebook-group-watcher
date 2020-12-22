@@ -15,6 +15,8 @@ class Database():
 
         #Init Posts table if not yet inited
         self.c.execute("CREATE TABLE IF NOT EXISTS Posts (url text, keys text, title text, content text)")
+        # Init group table if not yet inited
+        self.c.execute("CREATE TABLE IF NOT EXISTS Groups (url text, keywords text)")
 
     
     # Init Settings table

@@ -75,6 +75,7 @@ class FacebookGroupWatcher():
     # Takes a page (group) url and returns a list of latest posts urls
     def drive(self):
         while True:
+            self.getEntries()
             for entry in self.entries:
                 group = self.getGroupe(entry)
                 for key in self.getKeywords(entry):
@@ -109,22 +110,22 @@ class FacebookGroupWatcher():
                             elif (post_query and key not in post_query[1]):
                                 new_key = "%s,%s" % (post_query[1], key)
                                 self.database.update_post(post["url"], new_key)
- 
+                    try:
+                        self.database.conn.commit()
+                        print(colored("SUCCESS> New Posts Saved to Database", "green"))
+                    except Exception:
+                        print(colored("ERROR> Error Saving to Database, Exiting", "red"))
+                        exit(1)
+                    try:
+                        print(colored("INFO> Generating New RSS Feed", "yellow"))
+                        self.generate_feed()
+                        print(colored("SUCCESS> RSS Updated Successfully", "green"))
+                    except Exception:
+                        print(colored("ERROR> Error Generating Feed, Exiting", "red"))
+                        exit(1)
                     #return to web tab
                     self.driver.switch_to_window(self.driver.window_handles[0])
-            try:
-                self.database.conn.commit()
-                print(colored("SUCCESS> New Posts Saved to Database", "green"))
-            except Exception:
-                print(colored("ERROR> Error Saving to Database, Exiting", "red"))
-                exit(1)
-            try:
-                print(colored("INFO> Generating New RSS Feed", "yellow"))
-                self.generate_feed()
-                print(colored("SUCCESS> RSS Updated Successfully", "green"))
-            except Exception:
-                print(colored("ERROR> Error Generating Feed, Exiting", "red"))
-                exit(1)
+
     
     def generate_feed(self):
         self.database.c.execute("SELECT rowid, * FROM Posts")
