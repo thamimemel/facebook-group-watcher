@@ -11,7 +11,17 @@
       crossorigin="anonymous"
     />
   </head>
-
+  <style>
+    input {
+      margin-right: 5px;
+    }
+    .form-control:focus {
+      box-shadow: none;
+    }
+    .error_border {
+      border-color: red;
+    }
+  </style>
   <body>
     <ul class="nav nav-tabs" id="myTab" role="tablist">
       <li class="nav-item" role="presentation">
@@ -41,31 +51,28 @@
       </li>
     </ul>
     <div class="container-fluid">
+      <h2>Add Groups</h2>
       <row id="groups">
-        <div class="input-group mb-3">
+        <div class="input-group mb-3 new_group">
           <input
             type="text"
             class="form-control"
+            id="group_input"
             placeholder="Group Url"
-            aria-label="Username"
-            aria-describedby="basic-addon1"
+            onfocusout="check_group_url_input(event)"
           />
           <input
             type="text"
             class="form-control"
+            id="keywords_input"
             placeholder="Keywords"
-            aria-label="Username"
-            aria-describedby="basic-addon1"
+            onfocusout="check_keywords_input(event)"
           />
-          <button type="button" class="btn btn-danger">Delete</button>
+          <button type="button" class="btn btn-secondary" onclick="add_group()">
+            Add Group
+          </button>
         </div>
       </row>
-      <button type="button" class="btn btn-secondary" onclick="addGroupField()">
-        Add another
-      </button>
-      <button type="button" class="btn btn-secondary" onclick="">
-        Save Groups
-      </button>
     </div>
     <script>
       fetch("/getgroups")
@@ -77,27 +84,70 @@
         })
         .then((json) => console.log(json));
 
-      const addGroupField = () => {
-        document.getElementById(
-          "groups"
-        ).innerHTML += `        <div class="input-group mb-3">
-          <input
-            type="text"
-            class="form-control"
-            placeholder="Group Url"
-            aria-label="Username"
-            aria-describedby="basic-addon1"
-          />
-          <input
-            type="text"
-            class="form-control"
-            placeholder="Keywords"
-            aria-label="Username"
-            aria-describedby="basic-addon1"
-          />
-        </div>
-`;
+      const check_group_url_input = (e) => {
+        const value = e.target.value;
+        const group_re = /^https:\/\/www\.facebook\.com\/groups\/[0-9]+\/?$/;
+        if (group_re.test(value)) {
+          e.target.classList.remove("error_border");
+        } else {
+          e.target.classList.add("error_border");
+        }
       };
+
+      const check_keywords_input = (e) => {
+        const value = e.target.value.replace(/\s{2,}/g, " ");
+        e.target.value = value;
+        const keywords_re = /^[a-zA-Z0-9_ ]+$/;
+        if (keywords_re.test(value)) {
+          e.target.classList.remove("error_border");
+        } else {
+          e.target.classList.add("error_border");
+        }
+      };
+
+      const add_group = () => {
+        const group_input = document.getElementById("group_input");
+        const keywords_input = document.getElementById("keywords_input");
+
+        if (
+          !group_input.value &&
+          !keywords_input.value &&
+          group_input.classList.contains("error_border") &&
+          keywords_input.classList.contains("error_border")
+        ) {
+          return;
+        }
+        let group_val = group_input.value;
+        let keywords_val = keywords_input.value.replaceAll(" ", ",");
+        if (group_val[group_val.length - 1] != "/") {
+          group_val += "/";
+        }
+        const payload = {
+          url: group_val,
+          keywords: keywords_val,
+        };
+        postData("http://127.0.0.1:8888/addgroup", payload).then((data) => {
+          console.log(data);
+        });
+      };
+
+      async function postData(url = "", data = {}) {
+        // Default options are marked with *
+        const response = await fetch(url, {
+          method: "POST", // *GET, POST, PUT, DELETE, etc.
+          mode: "cors", // no-cors, *cors, same-origin
+          cache: "no-cache", // *default, no-cache, reload, force-cache, only-if-cached
+          credentials: "same-origin", // include, *same-origin, omit
+          headers: {
+            "Content-Type": "application/json",
+            // 'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          redirect: "follow", // manual, *follow, error
+          referrerPolicy: "no-referrer", // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
+          body: JSON.stringify(data), // body data type must match "Content-Type" header
+        });
+        return response.json(); // parses JSON response into native JavaScript objects
+      }
     </script>
   </body>
 </html>

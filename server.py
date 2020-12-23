@@ -1,40 +1,33 @@
-'''
-import http.server
-import socketserver
-from termcolor import colored
-
-class quitHandler(http.server.SimpleHTTPRequestHandler):
-    def log_message(self, format, *args):
-        pass
-
-class Server():
-    def __init__(self):
-        self.PORT = 8888
-        self.handler = quitHandler
-
-    def serve(self):
-        with socketserver.TCPServer(("", self.PORT), self.handler) as httpd:
-            print(colored("SUCESS> Server started at http://localhost:" + str(self.PORT), "green"))
-            print(colored("INFO> RSS Feeds Will be Available at http://localhost:" + str(self.PORT) + "/feed.xml", "yellow"))
-            httpd.serve_forever()
-'''
-import flask
+from flask import Flask, request, render_template, send_from_directory, jsonify
 import sqlite3
 
-app = flask.Flask(__name__)
+app = Flask(__name__)
 
 @app.route("/", methods=["GET"])
 def gethome():
-    return flask.render_template("index.html")
+    return render_template("index.html")
 
 @app.route("/feed.xml", methods=["GET"])
 def feed():
-    return flask.send_from_directory(".", "feed.xml")
+    return send_from_directory(".", "feed.xml")
 
 @app.route("/getgroups", methods=["GET"])
 def getgroups():
     with sqlite3.connect("database.db") as conn:
         cur = conn.cursor()
         cur.execute("SELECT * FROM Groups")
-        return flask.jsonify(cur.fetchall())
+        return jsonify(cur.fetchall())
+
+@app.route("/addgroup", methods=["POST"])
+def addgroup():
+    req_data = request.get_json()   
+    url = req_data["url"]
+    keywords = req_data["keywords"]
+    try:
+        with sqlite3.connect("database.db") as conn:
+            cur = conn.cursor()
+            cur.execute("INSERT INTO Groups VALUES (?, ?)", (url, keywords))
+            return jsonify({"success": "ok"})
+    except Exception:
+        return jsonify({"failed": "error connecting to database"})
 app.run(host= "127.0.0.1", port=8888, debug=True)
