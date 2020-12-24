@@ -33,4 +33,18 @@ def addgroup():
             return jsonify({"failed": "group already exists, are you trying to update an existing goup"})
     except Exception:
         return jsonify({"failed": "error connecting to database"})
+
+@app.route("/updategroup", methods=["POST"])
+def updategroup():
+    req_data = request.get_json()   
+    url = req_data["url"]
+    keywords = req_data["keywords"]
+    try:
+        with sqlite3.connect("database.db") as conn:
+            cur = conn.cursor()
+            cur.execute("UPDATE Groups SET keywords = ? WHERE url = ?", (keywords, url))
+            return jsonify({"success": "ok"})
+    except Exception:
+        return jsonify({"failed": "error connecting to database"})
+
 app.run(host= "127.0.0.1", port=8888, debug=True)

@@ -22,7 +22,7 @@
       border-color: red;
     }
   </style>
-  <body>
+  <body onload="get_groups()">
     <ul class="nav nav-tabs" id="myTab" role="tablist">
       <li class="nav-item" role="presentation">
         <a
@@ -54,7 +54,7 @@
     <div class="container-fluid">
       <h2 class="my-3">Add Groups</h2>
       <div id="alert-ph"></div>
-      <row id="groups">
+      <row id="new_group">
         <div class="input-group mb-3 new_group">
           <input
             type="text"
@@ -76,21 +76,57 @@
         </div>
       </row>
     </div>
+
+    <div class="container-fluid">
+      <div id="alert-ph2"></div>
+      <h2 class="my-3">Update Groups</h2>
+      <row id="groups"></row>
+    </div>
     <script
       src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js"
       integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW"
       crossorigin="anonymous"
     ></script>
     <script>
-      fetch("/getgroups")
-        .then((response) => {
-          if (!response.ok) {
-            alert("error fetching groups");
-          }
-          return response.json();
-        })
-        .then((json) => console.log(json));
-
+      const get_groups = () => {
+        const groups_ph = document.getElementById("groups");
+        fetch("/getgroups")
+          .then((response) => {
+            if (!response.ok) {
+              alert("error fetching groups");
+            }
+            return response.json();
+          })
+          .then((json) => {
+            groups_ph.innerHTML = "";
+            for (let group of json) {
+              groups_ph.innerHTML += `
+              <div class="input-group mb-3 new_group">
+          <input
+            type="text"
+            class="form-control"
+            value="${group[0]}"
+            placeholder="Group Url"
+            disabled
+          />
+          <input
+            type="text"
+            class="form-control"
+            id="keywords_input"
+            value="${group[1].replaceAll(",", " ")}"
+            onfocusout="check_keywords_input(event)"
+          />
+          <button type="button" class="btn btn-warning" onclick="update_group(event)">
+            Update
+          </button>
+          <button type="button" class="btn btn-danger" onclick="delete_group()">
+            Delete
+          </button>
+        </div>
+              `;
+            }
+          });
+      };
       const check_group_url_input = (e) => {
         const value = e.target.value;
         const group_re = /^https:\/\/www\.facebook\.com\/groups\/[0-9]+\/?$/;
@@ -102,7 +138,7 @@
       };
 
       const check_keywords_input = (e) => {
-        const value = e.target.value.replace(/\s{2,}/g, " ");
+        const value = e.target.value.replace(/\s{2,}/g, " ").trim();
         e.target.value = value;
         const keywords_re = /^[a-zA-Z0-9_ ]+$/;
         if (keywords_re.test(value)) {
@@ -133,7 +169,7 @@
           url: group_val,
           keywords: keywords_val,
         };
-        postData("http://127.0.0.1:8888/addgroup", payload).then((data) => {
+        postData("/addgroup", payload).then((data) => {
           if (data.success) {
             document.getElementById("alert-ph").innerHTML = `
             <div id="alert" class="alert alert-success alert-dismissible fade show" role="alert">
@@ -143,6 +179,7 @@
             `;
             group_input.value = "";
             keywords_input.value = "";
+            get_groups();
           } else if (data.failed) {
             document.getElementById("alert-ph").innerHTML = `
             <div id="alert" class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -150,6 +187,34 @@
               <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
               </div>
             `;
+          }
+        });
+      };
+
+      const update_group = (event) => {
+        const parent = event.target.parentElement;
+        const url = parent.children[0].value;
+        const keywords_input = parent.children[1];
+        if (
+          !keywords_input.value ||
+          keywords_input.classList.contains("error_border")
+        ) {
+          return;
+        }
+        const keywords = keywords_input.value.replaceAll(" ", ",");
+        const payload = {
+          url,
+          keywords,
+        };
+        postData("/updategroup", payload).then((data) => {
+          if (data.success) {
+            document.getElementById("alert-ph2").innerHTML = `
+            <div id="alert" class="alert alert-success alert-dismissible fade show" role="alert">
+              <strong>Group updated successully !</strong>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            `;
+            get_groups();
           }
         });
       };
