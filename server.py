@@ -3,6 +3,7 @@ import sqlite3
 
 app = Flask(__name__)
 
+sqlite3.connect("database.db").cursor().execute("CREATE TABLE IF NOT EXISTS Groups (url text, keywords text)")
 @app.route("/", methods=["GET"])
 def gethome():
     return render_template("index.html")
@@ -26,8 +27,10 @@ def addgroup():
     try:
         with sqlite3.connect("database.db") as conn:
             cur = conn.cursor()
-            cur.execute("INSERT INTO Groups VALUES (?, ?)", (url, keywords))
-            return jsonify({"success": "ok"})
+            if (not cur.execute("SELECT * FROM Groups WHERE url = ?", (url,)).fetchone()):
+                cur.execute("INSERT INTO Groups VALUES (?, ?)", (url, keywords))
+                return jsonify({"success": "ok"})
+            return jsonify({"failed": "group already exists, are you trying to update an existing goup"})
     except Exception:
         return jsonify({"failed": "error connecting to database"})
 app.run(host= "127.0.0.1", port=8888, debug=True)

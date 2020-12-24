@@ -50,8 +50,10 @@
         >
       </li>
     </ul>
+
     <div class="container-fluid">
-      <h2>Add Groups</h2>
+      <h2 class="my-3">Add Groups</h2>
+      <div id="alert-ph"></div>
       <row id="groups">
         <div class="input-group mb-3 new_group">
           <input
@@ -74,6 +76,11 @@
         </div>
       </row>
     </div>
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW"
+      crossorigin="anonymous"
+    ></script>
     <script>
       fetch("/getgroups")
         .then((response) => {
@@ -110,9 +117,9 @@
         const keywords_input = document.getElementById("keywords_input");
 
         if (
-          !group_input.value &&
-          !keywords_input.value &&
-          group_input.classList.contains("error_border") &&
+          !group_input.value ||
+          !keywords_input.value ||
+          group_input.classList.contains("error_border") ||
           keywords_input.classList.contains("error_border")
         ) {
           return;
@@ -127,7 +134,23 @@
           keywords: keywords_val,
         };
         postData("http://127.0.0.1:8888/addgroup", payload).then((data) => {
-          console.log(data);
+          if (data.success) {
+            document.getElementById("alert-ph").innerHTML = `
+            <div id="alert" class="alert alert-success alert-dismissible fade show" role="alert">
+              <strong>Group added successully !</strong>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            `;
+            group_input.value = "";
+            keywords_input.value = "";
+          } else if (data.failed) {
+            document.getElementById("alert-ph").innerHTML = `
+            <div id="alert" class="alert alert-danger alert-dismissible fade show" role="alert">
+              <strong>${data.failed}</strong>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            `;
+          }
         });
       };
 
