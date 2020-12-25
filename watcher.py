@@ -12,12 +12,14 @@ LOGIN_URL = 'https://www.facebook.com/login.php'
 
 class FacebookGroupWatcher():
     def __init__(self, email, password, database, feed, browser='Chrome'):
-        # Get Entries from entries.txt
-        self.getEntries()
+
 
         # set self feed and database
         self.feed = feed
         self.database = database
+
+        # Get Entries from entries.txt
+        self.getEntries()
 
         # Get settings from DB
         self.settings = database.settings
@@ -61,16 +63,14 @@ class FacebookGroupWatcher():
     
     def getEntries(self):
         self.entries = []
-        with open("entries.txt", "r") as f:
-            for line in f:
-                self.entries.append(line.strip())
-        f.close()
+        self.database.c.execute("SELECT * from Groups")
+        self.entries = self.database.c.fetchall()
     
     def getGroupe(self, entry):
-        return entry.split("|")[0].strip()
+        return entry[0]
 
     def getKeywords(self, entry):
-        return entry.split("|")[1].strip().split(" ")
+        return entry[1].strip().split(",")
     
     # Takes a page (group) url and returns a list of latest posts urls
     def drive(self):

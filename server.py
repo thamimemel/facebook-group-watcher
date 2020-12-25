@@ -47,4 +47,16 @@ def updategroup():
     except Exception:
         return jsonify({"failed": "error connecting to database"})
 
+@app.route("/deletegroup", methods=["POST"])
+def deletegroup():
+    req_data = request.get_json()   
+    url = req_data["url"]
+    try:
+        with sqlite3.connect("database.db") as conn:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM Groups WHERE url = ?", (url,))
+            return jsonify({"success": "ok"})
+    except Exception:
+        return jsonify({"failed": "error connecting to database"})
+
 app.run(host= "127.0.0.1", port=8888, debug=True)

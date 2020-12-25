@@ -36,18 +36,8 @@
           >Home</a
         >
       </li>
-      <li class="nav-item" role="presentation">
-        <a
-          class="nav-link"
-          id="profile-tab"
-          data-bs-toggle="tab"
-          href="/feed.xml"
-          target="_blank"
-          role="tab"
-          aria-controls="profile"
-          aria-selected="false"
-          >Open Feed</a
-        >
+      <li class="nav-item">
+        <a class="nav-link" href="/feed.xml" target="_blank">Open Feed</a>
       </li>
     </ul>
 
@@ -119,7 +109,7 @@
           <button type="button" class="btn btn-warning" onclick="update_group(event)">
             Update
           </button>
-          <button type="button" class="btn btn-danger" onclick="delete_group()">
+          <button type="button" class="btn btn-danger" onclick="delete_group(event)">
             Delete
           </button>
         </div>
@@ -129,7 +119,7 @@
       };
       const check_group_url_input = (e) => {
         const value = e.target.value;
-        const group_re = /^https:\/\/www\.facebook\.com\/groups\/[0-9]+\/?$/;
+        const group_re = /^https:\/\/www\.facebook\.com\/groups\/[0-9a-zA-Z ]+\/?$/;
         if (group_re.test(value)) {
           e.target.classList.remove("error_border");
         } else {
@@ -215,6 +205,40 @@
               </div>
             `;
             get_groups();
+          } else if (data.failed) {
+            document.getElementById("alert-ph").innerHTML = `
+            <div id="alert" class="alert alert-danger alert-dismissible fade show" role="alert">
+              <strong>${data.failed}</strong>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            `;
+          }
+        });
+      };
+
+      const delete_group = (event) => {
+        const parent = event.target.parentElement;
+        const url = parent.children[0].value;
+
+        const payload = {
+          url,
+        };
+        postData("/deletegroup", payload).then((data) => {
+          if (data.success) {
+            document.getElementById("alert-ph2").innerHTML = `
+            <div id="alert" class="alert alert-success alert-dismissible fade show" role="alert">
+              <strong>Group deleted successully !</strong>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            `;
+            get_groups();
+          } else if (data.failed) {
+            document.getElementById("alert-ph").innerHTML = `
+            <div id="alert" class="alert alert-danger alert-dismissible fade show" role="alert">
+              <strong>${data.failed}</strong>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            `;
           }
         });
       };
