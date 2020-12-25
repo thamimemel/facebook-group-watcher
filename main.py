@@ -19,9 +19,7 @@ if __name__ == '__main__':
         watcher.login()
         watcher.drive()
     try:
-        p1 = Process(target=watch)
-        p1.start()
-        print(colored("SUCCESS> Watcher Started Successfully", "green"))
+        watch()
 
     except Exception:
         watcher.close()
