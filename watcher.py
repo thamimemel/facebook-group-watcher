@@ -1,7 +1,7 @@
 from selenium import webdriver
-from webdriver_manager.firefox import GeckoDriverManager
 from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.action_chains import ActionChains
 from bs4 import BeautifulSoup
 from time import sleep
 import re
@@ -29,23 +29,25 @@ class FacebookGroupWatcher():
         self.password = password
         if browser == 'Chrome':
             # Use chrome
-            self.driver = webdriver.Chrome(executable_path=ChromeDriverManager().install())
-        elif browser == 'Firefox':
-            # Set it to Firefox
             options = Options()
-            options.set_preference("dom.disable_open_during_load", False)
-            options.set_preference('dom.popup_maximum', -1)
+            # Disable images and notifications popups
+            prefs = {'profile.managed_default_content_settings.images':2, "profile.default_content_setting_values.notifications" : 2,}
+            options.add_experimental_option("prefs", prefs)
+            # Prevent detection (hopefully ?)
+            options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            options.add_argument('--disable-blink-features=AutomationControlled')
+            # Maximize
+            options.add_argument("--start-maximized")
+            # Headless
             options.set_headless(True)
-            self.driver = webdriver.Firefox(executable_path=GeckoDriverManager().install(), options=options)
-        sleep(1)
-        self.init_tabs()
+            # Disable GPU
+            options.add_argument("--disable-gpu")
+            # Start Browser
+            self.driver = webdriver.Chrome(executable_path=ChromeDriverManager().install(), options=options)
+            # Hide webdriver usage
+            self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
-    def init_tabs(self):
-        # open new tab for mobile facebook
-        self.driver.execute_script("window.open('', '_blank');")
         sleep(1)
-        # return to web tab
-        self.driver.switch_to_window(self.driver.window_handles[0])
 
     def login(self):
         print(colored("INFO> Getting Login Page", "yellow"))
@@ -78,6 +80,54 @@ class FacebookGroupWatcher():
             self.getEntries()
             for entry in self.entries:
                 group = self.getGroupe(entry)
+                keywords = self.getKeywords(entry)
+                # Go to mobile group
+                self.driver.get(group+"?sorting_setting=CHRONOLOGICAL")
+                sleep(5)
+                for _ in range(5):
+                    self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight)") 
+                    sleep(3)
+                
+                # find all "See More" buttons
+                more_btns = self.driver.find_elements_by_css_selector("div.oajrlxb2.g5ia77u1.qu0x051f.esr5mh6w.e9989ue4.r7d6kgcz.rq0escxv.nhd2j8a9.nc684nl6.p7hjln8o.kvgmc6g5.cxmmr5t8.oygrvhab.hcukyx3x.jb3vyjys.rz4wbd8a.qt6c0cv9.a8nywdso.i1ao9s8h.esuyzwwr.f1sip0of.lzcic4wl.oo9gr5id.gpro0wi8.lrazzd5p")
+
+                # find all post links
+                links = self.driver.find_elements_by_css_selector(".oajrlxb2.g5ia77u1.qu0x051f.esr5mh6w.e9989ue4.r7d6kgcz.rq0escxv.nhd2j8a9.nc684nl6.p7hjln8o.kvgmc6g5.cxmmr5t8.oygrvhab.hcukyx3x.jb3vyjys.rz4wbd8a.qt6c0cv9.a8nywdso.i1ao9s8h.esuyzwwr.f1sip0of.lzcic4wl.gmql0nx0.gpro0wi8.b1v8xokw")
+
+                # simulate mouse over to activate links
+                action = ActionChains(self.driver)
+                for link in links:
+                    action.move_to_element(link).perform()
+                    sleep(0.3)
+                
+                # Click all more buttons if there is any
+                if more_btns:
+                    for btn in more_btns:
+                        self.driver.execute_script("arguments[0].click()", btn)
+                        sleep(1)
+                
+                # make soup
+                page_source = self.driver.page_source
+                soup = BeautifulSoup(page_source, "lxml")
+
+                # find all posts
+                articles = soup.find_all("div", class_=['du4w35lb k4urcfbm l9j0dhe7 sjgh65i0'])
+                
+                # loop over posts
+                for index, article in enumerate(articles):
+                    href = self.clean_post_link(links[index].get_attribute("href"))    # post link
+                    text = self.get_clean_post_text(article) # post content
+                    if text:
+                        matched_keys = self.fing_matching_keywords(text, keywords)
+                        if (matched_keys):
+                            print(index)
+                            print(matched_keys)
+
+                import sys
+                self.driver.quit()
+                sys.exit()
+                sleep(120)
+                """
                 for key in self.getKeywords(entry):
                     self.driver.get(group + "search?q="+ key + "&filters=eyJycF9jaHJvbm9fc29ydDowIjoie1wibmFtZVwiOlwiY2hyb25vc29ydFwiLFwiYXJnc1wiOlwiXCJ9In0%3D")
                     print(colored("INFO> Driving to Group: " + group + " With keyword " + key, "yellow"))
@@ -125,7 +175,24 @@ class FacebookGroupWatcher():
                         exit(1)
                     #return to web tab
                     self.driver.switch_to_window(self.driver.window_handles[0])
-
+                    """
+    def fing_matching_keywords(self, text, keywords):
+        text_set = set(text.split(" "))
+        return ",".join(list(text_set.intersection(keywords)))
+    
+    def get_clean_post_text(self, post):
+        long = post.find("span", class_=['d2edcug0 hpfvmrgz qv66sw1b c1et5uql gk29lw5a a8c37x1j keod5gw0 nxhoafnm aigsh9s9 d9wwppkn fe6kdd0r mau55g9w c8b282yb hrzyx87i jq4qci2q a3bd9o3v knj5qynh oo9gr5id hzawbc8m'])
+        short = post.find("div", class_=['qt6c0cv9 hv4rvrfc dati1w0a jb3vyjys'])
+        if long:
+            return long.text
+        
+        if short:
+            return short.text
+    
+    def clean_post_link(self, link):
+        if "?__cft" in link:
+            return link[0: link.index("?__cft")]
+        return "NULL"
     
     def generate_feed(self):
         self.database.c.execute("SELECT rowid, * FROM Posts")
