@@ -86,10 +86,15 @@ class FacebookGroupWatcher():
     def drive(self):
         while True:
             self.getEntries()
+            if not self.entries:
+                print(colored("ALERT> No groups added yet, waiting ...", "yellow"))
+                sleep(3)
+                continue
             for entry in self.entries:
                 group = self.getGroupe(entry)
                 keywords = self.getKeywords(entry)
                 self.driver.get(group.replace("www", "m") + "?ref=group_browse")
+                print(colored("INFO> Driving to group %s" % group, "green"))
                 # scroll down to get more posts
                 for _ in range(10):
                     sleep(round(uniform(1,3), 2))
@@ -131,6 +136,8 @@ class FacebookGroupWatcher():
                     print(colored("SUCCESS> New Posts Saved to Database", "green"))
                 except Exception:
                     print(colored("ERROR> Error Saving to Database, Exiting", "red"))
+                
+                self.generate_feed()
                 sleep(round(uniform(10, 20), 2))
 
     def get_post_date(self, post):
