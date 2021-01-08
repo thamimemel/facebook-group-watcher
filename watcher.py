@@ -1,14 +1,15 @@
 from selenium import webdriver
 from webdriver_manager.firefox import GeckoDriverManager
 from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.firefox.options import Options as FirefoxOptions
+from selenium.webdriver.chrome.options import Options as ChromeOptions
 from bs4 import BeautifulSoup
-from time import sleep
+from time import sleep, time
 import re
-from sys import exit
 from termcolor import colored
+from random import uniform
 
-LOGIN_URL = 'https://www.facebook.com/login.php'
+LOGIN_URL = 'https://m.facebook.com/login.php'
 
 class FacebookGroupWatcher():
     def __init__(self, email, password, database, feed, browser='Chrome'):
@@ -29,34 +30,43 @@ class FacebookGroupWatcher():
         self.password = password
         if browser == 'Chrome':
             # Use chrome
-            self.driver = webdriver.Chrome(executable_path=ChromeDriverManager().install())
+            options = ChromeOptions()
+            # Disable images and notifications popups
+            prefs = {'profile.managed_default_content_settings.images':2, "profile.default_content_setting_values.notifications" : 2,}
+            options.add_experimental_option("prefs", prefs)
+            # Prevent detection (hopefully ?)
+            options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            options.add_argument('--disable-blink-features=AutomationControlled')
+            # Maximize
+            options.add_argument("--start-maximized")
+            # Headless
+            #options.set_headless(True)
+            # Disable GPU
+            options.add_argument("--disable-gpu")
+            # Start Browser
+            self.driver = webdriver.Chrome(executable_path=ChromeDriverManager().install(), options=options)
+            # Hide webdriver usage
+            self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         elif browser == 'Firefox':
             # Set it to Firefox
-            options = Options()
+            options = FirefoxOptions()
             options.set_preference("dom.disable_open_during_load", False)
             options.set_preference('dom.popup_maximum', -1)
             options.set_headless(True)
             self.driver = webdriver.Firefox(executable_path=GeckoDriverManager().install(), options=options)
         sleep(1)
-        self.init_tabs()
 
-    def init_tabs(self):
-        # open new tab for mobile facebook
-        self.driver.execute_script("window.open('', '_blank');")
-        sleep(1)
-        # return to web tab
-        self.driver.switch_to_window(self.driver.window_handles[0])
 
     def login(self):
         print(colored("INFO> Getting Login Page", "yellow"))
         self.driver.get(LOGIN_URL)
-        email_element = self.driver.find_element_by_id('email')
+        email_element = self.driver.find_element_by_id('m_login_email')
         email_element.send_keys(self.email) # Give keyboard input
- 
-        password_element = self.driver.find_element_by_id('pass')
+
+        password_element = self.driver.find_element_by_id('m_login_password')
         password_element.send_keys(self.password) # Give password as input too
  
-        login_button = self.driver.find_element_by_class_name('_xkt')
+        login_button = self.driver.find_element_by_id('u_0_4')
         login_button.click() # Send mouse click
         print(colored("INFO> Logging IN", "yellow"))
         sleep(5)
@@ -70,7 +80,7 @@ class FacebookGroupWatcher():
         return entry[0]
 
     def getKeywords(self, entry):
-        return entry[1].strip().split(",")
+        return entry[1].lower().strip().split(",")
     
     # Takes a page (group) url and returns a list of latest posts urls
     def drive(self):
@@ -78,54 +88,75 @@ class FacebookGroupWatcher():
             self.getEntries()
             for entry in self.entries:
                 group = self.getGroupe(entry)
-                for key in self.getKeywords(entry):
-                    self.driver.get(group + "search?q="+ key + "&filters=eyJycF9jaHJvbm9fc29ydDowIjoie1wibmFtZVwiOlwiY2hyb25vc29ydFwiLFwiYXJnc1wiOlwiXCJ9In0%3D")
-                    print(colored("INFO> Driving to Group: " + group + " With keyword " + key, "yellow"))
-                    for _ in range(int(self.settings["scroll_nbr"])):
-                        sleep(int(self.settings["scroll_timer"]))
-                        self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight)") 
-                    sleep(int(self.settings["scroll_timer"]))
-                    page_source = self.driver.page_source
-                    soup = BeautifulSoup(page_source, "lxml")
-                    links = soup.findAll("a")
-                    # switch to mobile tab
-                    self.driver.switch_to_window(self.driver.window_handles[1])
-                    #loop over soup and find links for posts      
-                    print(colored(">>>>>>Scanning Matched Posts from " + group + " for keyword " + key, "yellow"))          
-                    for link in links:
-                        href = link.get('href')
-                        if "/permalink/" in href and "comment" not in href:
-                            # open post in m.facebook.com to get post info
-                            self.driver.get(href.replace("www", "m"))
-                            post = {"url": href, "key": key}
-                            if (self.driver.find_element_by_css_selector("._5rgt._5nk5").text):
-                                post["content"] = self.driver.find_element_by_css_selector("._5rgt._5nk5").text
-                            else:
-                                post["content"] = "NO TEXT CONTENT"
-                            post["title"] = " ".join(re.compile(r"\s+").split(post["content"]))[0:80]
-                            # Inserting or updating entry in database
-                            post_query = self.database.get_post(post["url"])
-                            if (not post_query):
-                                self.database.insert_post(post)
-                            elif (post_query and key not in post_query[1]):
-                                new_key = "%s,%s" % (post_query[1], key)
-                                self.database.update_post(post["url"], new_key)
+                keywords = self.getKeywords(entry)
+                self.driver.get(group.replace("www", "m") + "?ref=group_browse")
+                # scroll down to get more posts
+                for _ in range(10):
+                    sleep(round(uniform(1,3), 2))
+                    self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
+                # Click all read more buttons
+                more_btns = self.driver.find_elements_by_css_selector("span[data-sigil='more']")
+                for btn in more_btns:
                     try:
-                        self.database.conn.commit()
-                        print(colored("SUCCESS> New Posts Saved to Database", "green"))
+                        btn.click()
                     except Exception:
-                        print(colored("ERROR> Error Saving to Database, Exiting", "red"))
-                        exit(1)
-                    try:
-                        print(colored("INFO> Generating New RSS Feed", "yellow"))
-                        self.generate_feed()
-                        print(colored("SUCCESS> RSS Updated Successfully", "green"))
-                    except Exception:
-                        print(colored("ERROR> Error Generating Feed, Exiting", "red"))
-                        exit(1)
-                    #return to web tab
-                    self.driver.switch_to_window(self.driver.window_handles[0])
+                        pass
+                # Make the soup
+                page_source = self.driver.page_source
+                soup = BeautifulSoup(page_source, "lxml")
 
+                # Get all posts
+                posts = soup.find_all("article")
+                # Filter posts older than 24h
+                posts = [p for p in posts if re.search(r"hr|min|now", self.get_post_date(p))]
+                
+                for p in posts:
+                    content = self.get_post_content(p)
+                    if not content:
+                        continue
+                    href = self.get_post_link(p)
+                    matches = self.find_matching_keywords(content, keywords)
+                    if not matches:
+                        continue
+                    post = {"url": href, "keys": matches, "content": content}
+                    post["title"] = " ".join(re.compile(r"\s+").split(post["content"]))[0:80]
+                    
+                    # Inserting entry in database if it doesn't exist
+                    post_query = self.database.get_post(post["url"])
+                    if (not post_query):
+                        self.database.insert_post(post)
+
+                try:
+                    self.database.conn.commit()
+                    print(colored("SUCCESS> New Posts Saved to Database", "green"))
+                except Exception:
+                    print(colored("ERROR> Error Saving to Database, Exiting", "red"))
+                sleep(round(uniform(10, 20), 2))
+
+    def get_post_date(self, post):
+        link_el = post.find("div", class_=["_52jc _5qc4 _78cz _24u0 _36xo"])
+        return link_el.getText()
+    
+    def get_post_link(self, post):
+        link = post.find("div", class_=["_52jc _5qc4 _78cz _24u0 _36xo"]).find("a")["href"]
+        if "?refid" in link:
+            return link[0: link.index("?refid")].replace("://m", "://www")
+        return "NULL"
+
+    def get_post_content(self, post):
+        # Posts with background and text
+        content1 = post.find("span", class_=["_1-sk _2z7e"])
+        # Only text posts
+        content2 = post.find("div", class_=["_5rgt _5nk5 _5msi"])
+
+        if content1:
+            return content1.getText()
+        elif content2:
+            return content2.getText()
+    
+    def find_matching_keywords(self, text, keywords):
+        text_set = set(text.lower().replace(".", "").split(" "))
+        return ",".join(list(text_set.intersection(keywords)))
     
     def generate_feed(self):
         self.database.c.execute("SELECT rowid, * FROM Posts")
