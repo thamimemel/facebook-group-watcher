@@ -38,7 +38,7 @@ class Database():
         return self.c.fetchone()
     
     def insert_post(self, post):
-        data = (post["url"], post["key"], post["title"], post["content"])
+        data = (post["url"], post["keys"], post["title"], post["content"])
         self.c.execute("INSERT INTO Posts VALUES (?,?,?,?)", data)
     
     def update_post(self, url, keys):

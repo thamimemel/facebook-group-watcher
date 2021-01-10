@@ -4,3 +4,4 @@ webdriver-manager==3.2.2
 bs4==0.0.1
 feedgen==0.9.0
 Flask==1.1.2
+undetected-chromedriver==1.5.2
