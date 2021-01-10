@@ -96,7 +96,7 @@ class FacebookGroupWatcher():
                 self.driver.get(group.replace("www", "m") + "?ref=group_browse")
                 print(colored("INFO> Driving to group %s" % group, "green"))
                 # scroll down to get more posts
-                for _ in range(10):
+                for _ in range(15):
                     sleep(round(uniform(1,3), 2))
                     self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
                 # Click all read more buttons
@@ -162,7 +162,11 @@ class FacebookGroupWatcher():
             return content2.getText()
     
     def find_matching_keywords(self, text, keywords):
-        text_set = set(text.lower().replace(".", "").split(" "))
+        # Turn content into a list
+        text_set = text.lower().split(" ")
+        # Clean up the words, remove empty strings and turn it into a set of unique words
+        text_set = set(filter(bool, [e if e.isalnum() else "".join(filter(str.isalnum, e)) for e in text_set]))
+        print(text_set)
         return ",".join(list(text_set.intersection(keywords)))
     
     def generate_feed(self):

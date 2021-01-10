@@ -4,6 +4,10 @@ from feed import Feed
 from multiprocessing import Process
 from termcolor import colored
 
+from os import system
+
+system("color")
+
 if __name__ == '__main__':
     # init databases
     db = Database()
