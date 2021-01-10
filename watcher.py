@@ -1,10 +1,10 @@
 from selenium import webdriver
+import undetected_chromedriver as uc
 from webdriver_manager.firefox import GeckoDriverManager
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from selenium.webdriver.chrome.options import Options as ChromeOptions
 from bs4 import BeautifulSoup
-from time import sleep, time
+from time import sleep
 import re
 from termcolor import colored
 from random import uniform
@@ -13,8 +13,6 @@ LOGIN_URL = 'https://m.facebook.com/login.php'
 
 class FacebookGroupWatcher():
     def __init__(self, email, password, database, feed, browser='Chrome'):
-
-
         # set self feed and database
         self.feed = feed
         self.database = database
@@ -44,7 +42,7 @@ class FacebookGroupWatcher():
             # Disable GPU
             options.add_argument("--disable-gpu")
             # Start Browser
-            self.driver = webdriver.Chrome(executable_path=ChromeDriverManager().install(), options=options)
+            self.driver = uc.Chrome(options=options)
             # Hide webdriver usage
             self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         elif browser == 'Firefox':
